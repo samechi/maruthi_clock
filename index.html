@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マルチ・クロック</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* モード切替ボタン */
+        .tabs {
+            position: absolute;
+            top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button.active {
+            background: #007AFF;
+        }
+
+        /* 表示エリア */
+        .display-container {
+            text-align: center;
+            width: 100%;
+        }
+
+        .display {
+            font-size: 22vw;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        /* 操作パネル（タイマー・ストップウォッチ用） */
+        .controls {
+            margin-top: 20px;
+            display: none;
+            gap: 20px;
+        }
+
+        .show-controls {
+            display: flex;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        input {
+            width: 80px;
+            font-size: 24px;
+            text-align: center;
+            background: #222;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <button id="btn-clock" class="active" onclick="switchMode('clock')">時計</button>
+        <button id="btn-timer" onclick="switchMode('timer')">タイマー</button>
+        <button id="btn-stopwatch" onclick="switchMode('stopwatch')">ストップウォッチ</button>
+    </div>
+
+    <div class="display-container">
+        <div id="display" class="display">00:00:00</div>
+        
+        <div id="timer-controls" class="controls">
+            <div class="input-group">
+                <input type="number" id="t-min" value="3" min="0"> 分
+                <input type="number" id="t-sec" value="0" min="0" max="59"> 秒
+            </div>
+            <button onclick="startTimer()">スタート</button>
+            <button onclick="resetTimer()">リセット</button>
+        </div>
+
+        <div id="sw-controls" class="controls">
+            <button id="sw-start" onclick="toggleStopwatch()">スタート</button>
+            <button onclick="resetStopwatch()">リセット</button>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'clock';
+        let timerInterval, swInterval;
+        let swSeconds = 0;
+        let timerSeconds = 0;
+        let isSwRunning = false;
+
+        function switchMode(mode) {
+            currentMode = mode;
+            // ボタンの見た目更新
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${mode}`).classList.add('active');
+
+            // 操作パネルの表示切り替え
+            document.getElementById('timer-controls').classList.toggle('show-controls', mode === 'timer');
+            document.getElementById('sw-controls').classList.toggle('show-controls', mode === 'stopwatch');
+
+            if (mode === 'clock') {
+                updateClock();
+            } else if (mode === 'timer') {
+                displayTime(0);
+            } else if (mode === 'stopwatch') {
+                displayTime(swSeconds);
+            }
+        }
+
+        function displayTime(totalSeconds) {
+            const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const s = String(totalSeconds % 60).padStart(2, '0');
+            document.getElementById('display').textContent = `${h}:${m}:${s}`;
+        }
+
+        // --- 時計機能 ---
+        function updateClock() {
+            if (currentMode !== 'clock') return;
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('display').textContent = `${h}:${m}:${s}`;
+        }
+
+        // --- タイマー機能 ---
+        function startTimer() {
+            clearInterval(timerInterval);
+            const m = parseInt(document.getElementById('t-min').value) || 0;
+            const s = parseInt(document.getElementById('t-sec').value) || 0;
+            timerSeconds = m * 60 + s;
+            
+            if (timerSeconds <= 0) return;
+
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                displayTime(timerSeconds);
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    alert("時間です！");
+                }
+            }, 1000);
+        }
+        function resetTimer() {
+            clearInterval(timerInterval);
+            displayTime(0);
+        }
+
+        // --- ストップウォッチ機能 ---
+        function toggleStopwatch() {
+            const btn = document.getElementById('sw-start');
+            if (isSwRunning) {
+                clearInterval(swInterval);
+                btn.textContent = 'スタート';
+            } else {
+                swInterval = setInterval(() => {
+                    swSeconds++;
+                    displayTime(swSeconds);
+                }, 1000);
+                btn.textContent = 'ストップ';
+            }
+            isSwRunning = !isSwRunning;
+        }
+        function resetStopwatch() {
+            clearInterval(swInterval);
+            swSeconds = 0;
+            isSwRunning = false;
+            displayTime(0);
+            document.getElementById('sw-start').textContent = 'スタート';
+        }
+
+        // メインループ
+        setInterval(() => {
+            if (currentMode === 'clock') updateClock();
+        }, 1000);
+
+        updateClock();
+    </script>
+</body>
+</html>
